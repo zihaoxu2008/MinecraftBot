@@ -1,7 +1,10 @@
 package xyz.zihaoxu.script.obj;
 
 import com.github.steveice10.mc.protocol.data.game.ClientCommand;
+import com.github.steveice10.mc.protocol.data.game.entity.object.Direction;
+import com.github.steveice10.mc.protocol.data.game.entity.player.Hand;
 import com.github.steveice10.mc.protocol.data.game.entity.player.InteractAction;
+import com.github.steveice10.mc.protocol.data.game.entity.player.PlayerAction;
 import com.github.steveice10.mc.protocol.data.game.inventory.ClickItemAction;
 import com.github.steveice10.mc.protocol.data.game.inventory.ContainerAction;
 import com.github.steveice10.mc.protocol.data.game.inventory.ContainerActionType;
@@ -9,9 +12,9 @@ import com.github.steveice10.mc.protocol.packet.ingame.serverbound.ServerboundCh
 import com.github.steveice10.mc.protocol.packet.ingame.serverbound.ServerboundChatPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.serverbound.ServerboundClientCommandPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.serverbound.inventory.ServerboundContainerClickPacket;
-import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.ServerboundInteractPacket;
-import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosPacket;
+import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.*;
 import com.github.steveice10.packetlib.Session;
+import org.cloudburstmc.math.vector.Vector3i;
 import xyz.zihaoxu.Bots.Bot;
 import xyz.zihaoxu.Main;
 import xyz.zihaoxu.Minecraft.Container;
@@ -35,6 +38,9 @@ public class ScriptBot {
     public static ArrayList<Entity> entities=new ArrayList<>();
     public static ArrayList<Player> players=new ArrayList<>();
     public static ArrayList<Container> containers=new ArrayList<>();
+    public static double posX=0.0d;
+    public static double posY=0.0d;
+    public static double posZ=0.0d;
     public ScriptBot(Session session){
         this.session=session;
         this.logger=new Logger("ScriptEngine");
@@ -139,5 +145,46 @@ public class ScriptBot {
                 null,
                 Collections.EMPTY_MAP
         ));
+    }
+
+    public void useItem(int hand){
+        logger.info("使用物品");
+        session.send(new ServerboundUseItemPacket(
+                hand==0?Hand.MAIN_HAND:Hand.OFF_HAND,
+                0
+        ));
+    }
+
+    public void changeSlot(int slot){
+        if (slot<0 || slot>8){
+            logger.info("错误的快捷栏槽位: "+slot);
+            return;
+        }
+        logger.info("切换物品栏: "+slot);
+        session.send(new ServerboundSetCarriedItemPacket(
+                slot
+        ));
+    }
+
+    public void dropItem(int direction){
+        logger.info("丢弃物品");
+        session.send(new ServerboundPlayerActionPacket(
+                PlayerAction.DROP_ITEM,
+                Vector3i.ZERO,
+                Direction.from(direction),
+                0
+        ));
+    }
+
+    public double getPosX(){
+        return ScriptBot.posX;
+    }
+
+    public double getPosY(){
+        return ScriptBot.posY;
+    }
+
+    public double getPosZ(){
+        return ScriptBot.posZ;
     }
 }

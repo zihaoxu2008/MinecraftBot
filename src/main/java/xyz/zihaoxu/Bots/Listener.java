@@ -9,10 +9,12 @@ import com.github.steveice10.mc.protocol.packet.ingame.clientbound.ClientboundSy
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.entity.ClientboundEntityEventPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.entity.ClientboundRemoveEntitiesPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.entity.player.ClientboundPlayerCombatKillPacket;
+import com.github.steveice10.mc.protocol.packet.ingame.clientbound.entity.player.ClientboundPlayerPositionPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.entity.spawn.ClientboundAddEntityPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.entity.spawn.ClientboundAddPlayerPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.inventory.ClientboundContainerClosePacket;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.inventory.ClientboundOpenScreenPacket;
+import com.github.steveice10.mc.protocol.packet.ingame.clientbound.level.ClientboundSoundPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.title.ClientboundSetTitleTextPacket;
 import com.github.steveice10.packetlib.Session;
 import com.github.steveice10.packetlib.event.session.*;
@@ -27,6 +29,8 @@ import xyz.zihaoxu.Minecraft.Player;
 import xyz.zihaoxu.Utils.Logger;
 import xyz.zihaoxu.script.obj.ScriptBot;
 
+import javax.script.ScriptException;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -35,7 +39,9 @@ public class Listener implements SessionListener {
     private boolean isConnected;
     private Logger logger;
     public ScriptBot bot;
-    public Listener(){
+    private Bot controller;
+    public Listener(Bot bot){
+        this.controller=bot;
         logger=new Logger("Bot");
     }
 
@@ -206,6 +212,15 @@ public class Listener implements SessionListener {
                 }
             }
         }
+        if (packet instanceof ClientboundPlayerPositionPacket){
+            ScriptBot.posX=((ClientboundPlayerPositionPacket) packet).getX();
+            ScriptBot.posY=((ClientboundPlayerPositionPacket) packet).getY();
+            ScriptBot.posZ=((ClientboundPlayerPositionPacket) packet).getZ();
+        }
+        if (packet instanceof ClientboundSoundPacket){
+            logger.info("播放音效: "+((ClientboundSoundPacket) packet).getSound().getName());
+            Main.scriptManager.call("onSound",bot,((ClientboundSoundPacket) packet).getSound().getName());
+        }
     }
 
     @Override
@@ -226,6 +241,7 @@ public class Listener implements SessionListener {
 
     @Override
     public void connected(ConnectedEvent event) {
+        Bot.reconnectCount=0;
         bot=new ScriptBot(event.getSession());
         this.isConnected=true;
         logger.info("服务器已连接");
@@ -244,11 +260,18 @@ public class Listener implements SessionListener {
     public void disconnected(DisconnectedEvent event) {
         bot=new ScriptBot(event.getSession());
         if (event.getReason() instanceof TextComponent){
-            logger.info("与服务器断开连接: "+((TextComponent) event.getReason()).content());
-        }else {
+            logger.info("与服务器断开连接: "+parseTextComponent((TextComponent) event.getReason()));
+        } else if (event.getReason() instanceof TranslatableComponent) {
+            logger.info("与服务器断开连接: "+((TranslatableComponent) event.getReason()).key());
+        } else {
             logger.info("与服务器断开连接");
         }
         // logger.info(event.toString());
         Main.scriptManager.call("onDisconnected",bot);
+        try {
+            this.controller.reconnect();
+        } catch (IOException | ScriptException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
